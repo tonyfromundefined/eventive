@@ -11,6 +11,11 @@
     }
   },
   "main": "./dist/index.js",
+  "files": [
+    "README.md",
+    "src",
+    "dist"
+  ],
   "scripts": {
     "build": "nanobundle build",
     "clean": "nanobundle clean",
