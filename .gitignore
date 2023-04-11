@@ -13,3 +13,5 @@
 .DS_Store
 lerna-debug.log
 .ultra.cache.json
+
+dist
