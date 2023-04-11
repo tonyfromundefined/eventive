@@ -76,7 +76,7 @@ export type Eventive<
   ): Promise<DomainEvent[]>;
   all(): Promise<BaseEntity<State>[]>;
   findOne(args: EventiveFindOneArgs): Promise<BaseEntity<State> | null>;
-  batch(args: EventiveBatchArgs): Promise<BaseEntity<State>[]>;
+  batchGet(args: EventiveBatchArgs): Promise<BaseEntity<State>[]>;
   create<EventName extends DomainEvent["eventName"]>(
     args: EventiveCreateArgs<CurrentRevision, DomainEvent, EventName>
   ): {
@@ -206,7 +206,7 @@ export function eventive<
     return entity;
   };
 
-  const batch: Output["batch"] = async ({ entityIds }) => {
+  const batchGet: Output["batchGet"] = async ({ entityIds }) => {
     const filter = {
       entityId: {
         $in: entityIds,
@@ -307,7 +307,7 @@ export function eventive<
     queryEvents,
     all,
     findOne,
-    batch,
+    batchGet,
     create,
     dispatch,
   };

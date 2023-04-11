@@ -15,3 +15,5 @@ lerna-debug.log
 .ultra.cache.json
 
 dist
+node_modules
+coverage
