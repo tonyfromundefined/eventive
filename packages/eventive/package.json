@@ -1,6 +1,7 @@
 {
   "name": "eventive",
   "version": "0.1.2",
+  "license": "MIT",
   "type": "module",
   "exports": {
     ".": {
