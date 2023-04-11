@@ -1,8 +1,73 @@
-# eventive
+# Eventive
+
+![](https://img.shields.io/npm/v/eventive) ![](https://img.shields.io/npm/l/eventive) ![](https://img.shields.io/npm/dt/eventive) ![](https://img.shields.io/github/contributors/tonyfromundefined/eventive) ![](https://img.shields.io/github/last-commit/tonyfromundefined/eventive)
 
 Event Sourcing Framework in MongoDB
 
-## Usage
+## Getting Started
+
+```bash
+$ yarn add mongodb eventive
+```
+
+## Setup
+
+#### 1. Define Domain Model
+
+```typescript
+type MyDomainEvent =
+  | BaseDomainEvent<
+      "v1",
+      "init",
+      {
+        // ...
+      }
+    >
+  | BaseDomainEvent<
+      "v1",
+      "update",
+      {
+        // ...
+      }
+    >;
+```
+
+#### 2. Define my state
+
+```typescript
+type MyState = {
+  // ...
+};
+```
+
+#### 3. Implement my business logic clearly in reducer
+
+```typescript
+import { BaseReducer } from "eventive";
+
+const reducer: BaseReducer<"v1", MyDomainEvent, MyState> = (
+  prevState,
+  event
+) => {
+  // ...
+
+  return nextState;
+};
+```
+
+#### 4. Maps older revision events to newer event interfaces for backwards compatibility
+
+```typescript
+import { BaseMapper } from "eventive";
+
+const mapper: BaseMapper<"v1", MyDomainEvent> = (event) => {
+  // ...
+
+  return currentRevisionEvent;
+};
+```
+
+#### 5. Then, `eventive` automatically make common repository interface
 
 ```typescript
 import { eventive } from "eventive";
@@ -11,70 +76,70 @@ import { MongoClient } from "mongodb";
 const mongoClient = new MongoClient();
 const db = mongoClient.db("my_database");
 
-/**
- * 1. Define your domain event
- */
-type MyDomainEvent =
-  | BaseDomainEvent<
-      "init",
-      {
-        // ...
-      }
-    >
-  | BaseDomainEvent<
-      "update",
-      {
-        // ...
-      }
-    >;
-
-/**
- * 2. Define your state
- */
-type MyState = {
-  // ...
-};
-
-/**
- * 3. Implement your own business logic clearly in reducer
- */
-const reducer: BaseReducer<MyDomainEvent, MyState> = (prevState, event) => {
-  // ...
-};
-
-/**
- * 4. Then, `eventive` automatically make common repository interface
- */
-const repository = eventive({
+const myRepository = eventive({
   db,
-  dbCollectionName: "events",
+  currentRevision: "v1",
   entityName: "MyModel",
   reducer,
+  mapper,
+  dbCollectionName: "events", // optional
 });
+```
 
-// Scan all entities
-repository.all();
+## Usage
 
-// Find one entity with `entityId`
-repository.findOne({
+#### `all()`
+
+```typescript
+/**
+ * Scan all entities
+ */
+myRepository.all();
+```
+
+#### `findOne()`
+
+```typescript
+/**
+ * Find one entity with `entityId`
+ */
+myRepository.findOne({
   entityId: "...",
 });
+```
 
-// Find many entities with `entityIds`
-repository.batch({
+#### `batchGet()`
+
+```typescript
+/**
+ * Find many entities with `entityIds`
+ */
+myRepository.batchGet({
   entityIds: ["...", "..."],
 });
+```
 
-// Create entity with initial DomainEvent
-const { commit } = repository.create({
+#### `create()`
+
+```typescript
+/**
+ * Create entity with initial DomainEvent
+ */
+const { commit } = myRepository.create({
   eventName: "init",
   eventBody: {
     // ...
   },
 });
+```
 
-// Dispatch DomainEvent to entity
-const { commit } = repository.dispatch({
+#### `dispatch()`
+
+```typescript
+/**
+ * Dispatch DomainEvent to entity
+ */
+const { commit } = myRepository.dispatch({
   entity,
   eventName: "edit",
   eventBody: {
