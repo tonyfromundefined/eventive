@@ -26,14 +26,14 @@ export type EventiveCreateArgs<
   DomainEvent extends BaseDomainEvent<string, string, {}>,
   EventName extends DomainEvent["eventName"]
 > = {
-  initialEventName: EventName;
-  initialEventData: Extract<
+  eventName: EventName;
+  eventBody: Extract<
     DomainEvent,
     {
       revision: CurrentRevision;
       eventName: EventName;
     }
-  >["data"];
+  >["body"];
 };
 export type EventiveDispatchArgs<
   CurrentRevision extends string,
@@ -43,13 +43,13 @@ export type EventiveDispatchArgs<
 > = {
   entity: BaseEntity<State>;
   eventName: EventName;
-  eventData: Extract<
+  eventBody: Extract<
     DomainEvent,
     {
       revision: CurrentRevision;
       eventName: EventName;
     }
-  >["data"];
+  >["body"];
 };
 
 export type EventiveOptions<
@@ -58,6 +58,7 @@ export type EventiveOptions<
   State extends {}
 > = {
   db: Db;
+  dbCollectionName?: string;
   entityName: string;
   currentRevision: CurrentRevision;
   reducer: BaseReducer<CurrentRevision, DomainEvent, State>;
@@ -101,21 +102,30 @@ export function eventive<
 ): Eventive<CurrentRevision, DomainEvent, State> {
   type Output = Eventive<CurrentRevision, DomainEvent, State>;
 
-  const eventsCollection = options.db.collection<DomainEvent>("events");
+  const eventsCollection = options.db.collection<DomainEvent>(
+    options.dbCollectionName ?? "events"
+  );
 
   const plugins = options.plugins ?? [];
 
-  const onDispatchedHooks = new Set<
-    NonNullable<
-      EventivePlugin<CurrentRevision, DomainEvent, State>["onDispatched"]
-    >
-  >();
+  const commitEvent = async ({
+    event,
+    entity,
+  }: {
+    event: DomainEvent;
+    entity: BaseEntity<State>;
+  }) => {
+    const eventDocument = event as OptionalUnlessRequiredId<DomainEvent>;
 
-  plugins.forEach((plugin) => {
-    if (plugin.onDispatched) {
-      onDispatchedHooks.add(plugin.onDispatched);
+    await eventsCollection.insertOne(eventDocument);
+
+    for (const plugin of plugins) {
+      plugin.onCommitted?.({
+        event: options.mapper(event),
+        entity,
+      });
     }
-  });
+  };
 
   const queryEvents: Output["queryEvents"] = async ({
     filter,
@@ -228,48 +238,40 @@ export function eventive<
     return entities;
   };
 
-  const create: Output["create"] = ({ initialEventName, initialEventData }) => {
+  const create: Output["create"] = ({ eventName, eventBody }) => {
     const eventId = createId();
     const entityId = createId();
 
-    const initialEvent = {
+    const event = {
       revision: options.currentRevision,
       eventId,
-      eventName: initialEventName,
+      eventName,
       eventCreatedAt: new Date().toISOString(),
       entityName: options.entityName,
       entityId,
-      data: initialEventData,
+      body: eventBody,
     } as BaseDomainEvent<string, string, {}> as DomainEvent;
 
-    const initialEventDocument =
-      initialEvent as OptionalUnlessRequiredId<DomainEvent>;
-
-    const state = options.reducer({} as State, options.mapper(initialEvent));
+    const state = options.reducer({} as State, options.mapper(event));
 
     const entity = toEntity({
       state,
-      createdAt: initialEvent.eventCreatedAt,
-      lastEvent: initialEvent,
+      createdAt: event.eventCreatedAt,
+      lastEvent: event,
     });
 
     return {
+      event,
       entity,
-      event: initialEvent,
-      async commit() {
-        await eventsCollection.insertOne(initialEventDocument);
-
-        onDispatchedHooks.forEach((hook) =>
-          hook({
-            event: options.mapper(initialEvent),
-            entity,
-          })
-        );
-      },
+      commit: () =>
+        commitEvent({
+          event,
+          entity,
+        }),
     };
   };
 
-  const dispatch: Output["dispatch"] = ({ entity, eventName, eventData }) => {
+  const dispatch: Output["dispatch"] = ({ entity, eventName, eventBody }) => {
     const eventId = createId();
 
     const event = {
@@ -279,32 +281,25 @@ export function eventive<
       eventCreatedAt: new Date().toISOString(),
       entityName: options.entityName,
       entityId: entity.entityId,
-      data: eventData,
+      body: eventBody,
     } as BaseDomainEvent<string, string, {}> as DomainEvent;
-
-    const eventDocument = event as OptionalUnlessRequiredId<DomainEvent>;
 
     const nextState = options.reducer(entity.state, options.mapper(event));
 
-    const nextEntity = toEntity({
+    const updatedEntity = toEntity({
       state: nextState,
       lastEvent: event,
       createdAt: entity.createdAt,
     });
 
     return {
-      entity: nextEntity,
       event,
-      commit: async () => {
-        await eventsCollection.insertOne(eventDocument);
-
-        onDispatchedHooks.forEach((hook) =>
-          hook({
-            event: options.mapper(event),
-            entity: nextEntity,
-          })
-        );
-      },
+      entity: updatedEntity,
+      commit: () =>
+        commitEvent({
+          event,
+          entity,
+        }),
     };
   };
 

@@ -66,8 +66,8 @@ repository.batch({
 
 // Create entity with initial DomainEvent
 const { commit } = repository.create({
-  initialEventName: "init",
-  initialEventData: {
+  eventName: "init",
+  eventBody: {
     // ...
   },
 });
@@ -76,7 +76,7 @@ const { commit } = repository.create({
 const { commit } = repository.dispatch({
   entity,
   eventName: "edit",
-  eventData: {
+  eventBody: {
     // ...
   },
 });

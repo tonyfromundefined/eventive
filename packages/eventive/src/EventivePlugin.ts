@@ -5,7 +5,7 @@ export type EventivePlugin<
   DomainEvent extends BaseDomainEvent<string, string, {}>,
   State extends {}
 > = {
-  onDispatched?(args: {
+  onCommitted?(args: {
     event: Extract<DomainEvent, { revision: CurrentRevision }>;
     entity: BaseEntity<State>;
   }): void;
