@@ -47,8 +47,9 @@ const reducer: BaseReducer<MyDomainEvent, MyState> = (prevState, event) => {
  */
 const repository = eventive({
   db,
-  reducer,
+  dbCollectionName: "events",
   entityName: "MyModel",
+  reducer,
 });
 
 // Scan all entities
