@@ -14,7 +14,7 @@ type MyState = {
   updatedDatetime: string;
 };
 
-type MyReducer = BaseReducer<"v1", MyDomainEvent, MyState>;
+type MyReducer = BaseReducer<MyDomainEvent, MyState>;
 
 const reducer: MyReducer = (prevState, event) => {
   switch (event.eventName) {

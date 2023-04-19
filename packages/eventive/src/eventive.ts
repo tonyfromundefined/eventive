@@ -61,7 +61,10 @@ export type EventiveOptions<
   dbCollectionName?: string;
   entityName: string;
   currentRevision: CurrentRevision;
-  reducer: BaseReducer<CurrentRevision, DomainEvent, State>;
+  reducer: BaseReducer<
+    Extract<DomainEvent, { revision: CurrentRevision }>,
+    State
+  >;
   mapper: BaseMapper<CurrentRevision, DomainEvent>;
   plugins?: EventivePlugin<CurrentRevision, DomainEvent, State>[];
 };
