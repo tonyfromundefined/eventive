@@ -19,6 +19,12 @@ export type EventiveQueryEventsArgs<
   limit?: number;
 };
 
+export type EventiveAllArgs<
+  DomainEvent extends BaseDomainEvent<string, string, {}>
+> = {
+  filter?: Filter<DomainEvent>;
+};
+
 export type EventiveFindOneArgs = { entityId: string };
 export type EventiveBatchArgs = { entityIds: string[] };
 export type EventiveCreateArgs<
@@ -77,7 +83,7 @@ export type Eventive<
   queryEvents(
     args: EventiveQueryEventsArgs<DomainEvent>
   ): Promise<DomainEvent[]>;
-  all(): Promise<BaseEntity<State>[]>;
+  all(args?: EventiveAllArgs<DomainEvent>): Promise<BaseEntity<State>[]>;
   findOne(args: EventiveFindOneArgs): Promise<BaseEntity<State> | null>;
   batchGet(args: EventiveBatchArgs): Promise<BaseEntity<State>[]>;
   create<EventName extends DomainEvent["eventName"]>(
@@ -151,9 +157,9 @@ export function eventive<
     return events as DomainEvent[];
   };
 
-  const all: Output["all"] = async () => {
+  const all: Output["all"] = async (args) => {
     const events = await queryEvents({
-      filter: {},
+      filter: args?.filter ?? {},
       sort: {
         eventDate: -1,
       },
