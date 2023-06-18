@@ -6,8 +6,8 @@ import { eventive } from "./eventive";
 import type { BaseDomainEvent, BaseReducer } from "./util-types";
 
 type MyDomainEvent =
-  | BaseDomainEvent<"v1", "init", { datetime: string }>
-  | BaseDomainEvent<"v1", "update", { datetime: string }>;
+  | BaseDomainEvent<"init", { datetime: string }>
+  | BaseDomainEvent<"update", { datetime: string }>;
 
 type MyState = {
   createdDatetime: string;
@@ -50,11 +50,9 @@ describe("eventive()", () => {
 
   test("create entity", async () => {
     const myRepository = eventive({
-      currentRevision: "v1",
       db,
       entityName: "MyEntity1",
       reducer,
-      mapper: (e) => e,
     });
 
     const currentDatetime = new Date().toISOString();
@@ -101,11 +99,9 @@ describe("eventive()", () => {
 
   test("update entity", async () => {
     const myRepository = eventive({
-      currentRevision: "v1",
       db,
       entityName: "MyEntity2",
       reducer,
-      mapper: (e) => e,
     });
 
     const currentDatetime = new Date().toISOString();
@@ -183,11 +179,9 @@ describe("eventive()", () => {
     const onCommit = vi.fn(() => {});
 
     const myRepository = eventive({
-      currentRevision: "v1",
       db,
       entityName: "MyEntity2",
       reducer,
-      mapper: (e) => e,
       plugins: [
         {
           onCommitted() {

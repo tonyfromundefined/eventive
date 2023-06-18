@@ -11,73 +11,60 @@ import type {
 } from "./util-types";
 import { toEntity } from "./util-types";
 
+function bypass<T>(t: T) {
+  return t;
+}
+
 export type EventiveQueryEventsArgs<
-  DomainEvent extends BaseDomainEvent<string, string, {}>
+  DomainEvent extends BaseDomainEvent<string, {}>
 > = {
   filter: Filter<DomainEvent>;
   sort?: Sort;
   limit?: number;
 };
 
-export type EventiveAllArgs<
-  DomainEvent extends BaseDomainEvent<string, string, {}>
-> = {
+export type EventiveAllArgs<DomainEvent extends BaseDomainEvent<string, {}>> = {
   filter?: Filter<DomainEvent>;
 };
 
 export type EventiveFindOneArgs = { entityId: string };
 export type EventiveBatchArgs = { entityIds: string[] };
 export type EventiveCreateArgs<
-  CurrentRevision extends string,
-  DomainEvent extends BaseDomainEvent<string, string, {}>,
+  DomainEvent extends BaseDomainEvent<string, {}>,
   EventName extends DomainEvent["eventName"]
 > = {
   eventName: EventName;
   eventBody: Extract<
     DomainEvent,
     {
-      revision: CurrentRevision;
       eventName: EventName;
     }
   >["body"];
 };
 export type EventiveDispatchArgs<
-  CurrentRevision extends string,
-  DomainEvent extends BaseDomainEvent<string, string, {}>,
+  DomainEvent extends BaseDomainEvent<string, {}>,
   State extends {},
   EventName extends DomainEvent["eventName"]
 > = {
   entity: BaseEntity<State>;
   eventName: EventName;
-  eventBody: Extract<
-    DomainEvent,
-    {
-      revision: CurrentRevision;
-      eventName: EventName;
-    }
-  >["body"];
+  eventBody: Extract<DomainEvent, { eventName: EventName }>["body"];
 };
 
 export type EventiveOptions<
-  CurrentRevision extends string,
-  DomainEvent extends BaseDomainEvent<string, string, {}>,
+  DomainEvent extends BaseDomainEvent<string, {}>,
   State extends {}
 > = {
   db: Db;
   dbCollectionName?: string;
   entityName: string;
-  currentRevision: CurrentRevision;
-  reducer: BaseReducer<
-    Extract<DomainEvent, { revision: CurrentRevision }>,
-    State
-  >;
-  mapper: BaseMapper<CurrentRevision, DomainEvent>;
-  plugins?: EventivePlugin<CurrentRevision, DomainEvent, State>[];
+  reducer: BaseReducer<DomainEvent, State>;
+  mapper?: BaseMapper<DomainEvent>;
+  plugins?: EventivePlugin<DomainEvent, State>[];
 };
 
 export type Eventive<
-  CurrentRevision extends string,
-  DomainEvent extends BaseDomainEvent<string, string, {}>,
+  DomainEvent extends BaseDomainEvent<string, {}>,
   State extends {}
 > = {
   queryEvents(
@@ -87,14 +74,14 @@ export type Eventive<
   findOne(args: EventiveFindOneArgs): Promise<BaseEntity<State> | null>;
   batchGet(args: EventiveBatchArgs): Promise<BaseEntity<State>[]>;
   create<EventName extends DomainEvent["eventName"]>(
-    args: EventiveCreateArgs<CurrentRevision, DomainEvent, EventName>
+    args: EventiveCreateArgs<DomainEvent, EventName>
   ): {
     entity: BaseEntity<State>;
     event: DomainEvent;
     commit: () => Promise<void>;
   };
   dispatch<EventName extends DomainEvent["eventName"]>(
-    args: EventiveDispatchArgs<CurrentRevision, DomainEvent, State, EventName>
+    args: EventiveDispatchArgs<DomainEvent, State, EventName>
   ): {
     entity: BaseEntity<State>;
     event: DomainEvent;
@@ -103,13 +90,10 @@ export type Eventive<
 };
 
 export function eventive<
-  CurrentRevision extends string,
-  DomainEvent extends BaseDomainEvent<string, string, {}>,
+  DomainEvent extends BaseDomainEvent<string, {}>,
   State extends {}
->(
-  options: EventiveOptions<CurrentRevision, DomainEvent, State>
-): Eventive<CurrentRevision, DomainEvent, State> {
-  type Output = Eventive<CurrentRevision, DomainEvent, State>;
+>(options: EventiveOptions<DomainEvent, State>): Eventive<DomainEvent, State> {
+  type Output = Eventive<DomainEvent, State>;
 
   const eventsCollection = options.db.collection<DomainEvent>(
     options.dbCollectionName ?? "events"
@@ -130,7 +114,7 @@ export function eventive<
 
     for (const plugin of plugins) {
       plugin.onCommitted?.({
-        event: options.mapper(event),
+        event: options.mapper?.(event) ?? event,
         entity,
       });
     }
@@ -168,7 +152,9 @@ export function eventive<
     const eventMap = groupBy(events, (e) => e.entityId);
 
     const entities = Object.entries(eventMap).map(([, e]) => {
-      const state = e.map(options.mapper).reduce(options.reducer, {} as State);
+      const state = e
+        .map(options.mapper ?? bypass)
+        .reduce(options.reducer, {} as State);
 
       const firstEvent = e[0];
       const lastEvent = last(e)!;
@@ -200,7 +186,7 @@ export function eventive<
     }
 
     const state = events
-      .map(options.mapper)
+      .map(options.mapper ?? bypass)
       .reduce(options.reducer, {} as State);
 
     const firstEvent = events[0];
@@ -232,7 +218,9 @@ export function eventive<
     const eventMap = groupBy(events, (e) => e.entityId);
 
     const entities = Object.entries(eventMap).map(([, e]) => {
-      const state = e.map(options.mapper).reduce(options.reducer, {} as State);
+      const state = e
+        .map(options.mapper ?? bypass)
+        .reduce(options.reducer, {} as State);
 
       const firstEvent = e[0];
       const lastEvent = last(e)!;
@@ -252,16 +240,18 @@ export function eventive<
     const entityId = createId();
 
     const event = {
-      revision: options.currentRevision,
       eventId,
       eventName,
       eventCreatedAt: new Date().toISOString(),
       entityName: options.entityName,
       entityId,
       body: eventBody,
-    } as BaseDomainEvent<string, string, {}> as DomainEvent;
+    } as BaseDomainEvent<string, {}> as DomainEvent;
 
-    const state = options.reducer({} as State, options.mapper(event));
+    const state = options.reducer(
+      {} as State,
+      options.mapper?.(event) ?? event
+    );
 
     const entity = toEntity({
       state,
@@ -284,16 +274,18 @@ export function eventive<
     const eventId = createId();
 
     const event = {
-      revision: options.currentRevision,
       eventId,
       eventName,
       eventCreatedAt: new Date().toISOString(),
       entityName: options.entityName,
       entityId: entity.entityId,
       body: eventBody,
-    } as BaseDomainEvent<string, string, {}> as DomainEvent;
+    } as BaseDomainEvent<string, {}> as DomainEvent;
 
-    const nextState = options.reducer(entity.state, options.mapper(event));
+    const nextState = options.reducer(
+      entity.state,
+      options.mapper?.(event) ?? event
+    );
 
     const updatedEntity = toEntity({
       state: nextState,

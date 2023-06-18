@@ -17,14 +17,12 @@ $ yarn add mongodb eventive
 ```typescript
 type MyDomainEvent =
   | BaseDomainEvent<
-      "v1",
       "init",
       {
         // ...
       }
     >
   | BaseDomainEvent<
-      "v1",
       "update",
       {
         // ...
@@ -45,10 +43,7 @@ type MyState = {
 ```typescript
 import { BaseReducer } from "eventive";
 
-const reducer: BaseReducer<"v1", MyDomainEvent, MyState> = (
-  prevState,
-  event
-) => {
+const reducer: BaseReducer<MyDomainEvent, MyState> = (prevState, event) => {
   // ...
 
   return nextState;
@@ -60,7 +55,7 @@ const reducer: BaseReducer<"v1", MyDomainEvent, MyState> = (
 ```typescript
 import { BaseMapper } from "eventive";
 
-const mapper: BaseMapper<"v1", MyDomainEvent> = (event) => {
+const mapper: BaseMapper<MyDomainEvent> = (event) => {
   // ...
 
   return currentRevisionEvent;
@@ -78,7 +73,6 @@ const db = mongoClient.db("my_database");
 
 const myRepository = eventive({
   db,
-  currentRevision: "v1",
   entityName: "MyModel",
   reducer,
   mapper,
