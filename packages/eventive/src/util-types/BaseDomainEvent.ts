@@ -1,5 +1,4 @@
-export type BaseDomainEvent<Revision, Name, Body> = {
-  revision: Revision;
+export type BaseDomainEvent<Name, Body> = {
   eventId: string;
   eventName: Name;
   eventCreatedAt: string;

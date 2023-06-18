@@ -9,7 +9,7 @@ export type BaseEntity<State extends {}> = {
 };
 
 export type ToEntityArgs<
-  DomainEvent extends BaseDomainEvent<string, string, {}>,
+  DomainEvent extends BaseDomainEvent<string, {}>,
   State extends {}
 > = {
   state: State;
@@ -17,7 +17,7 @@ export type ToEntityArgs<
   lastEvent: DomainEvent;
 };
 export function toEntity<
-  DomainEvent extends BaseDomainEvent<string, string, {}>,
+  DomainEvent extends BaseDomainEvent<string, {}>,
   State extends {}
 >(args: ToEntityArgs<DomainEvent, State>): BaseEntity<State> {
   return {
