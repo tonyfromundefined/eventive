@@ -1,3 +1,4 @@
+import { last } from "lodash-es";
 import type { Db } from "mongodb";
 import { MongoClient } from "mongodb";
 import { MongoMemoryServer } from "mongodb-memory-server";
@@ -95,6 +96,45 @@ describe("eventive()", () => {
     expect(batchedEntities.length).toEqual(1);
     expect(batchedEntities[0].state.createdDatetime).toEqual(currentDatetime);
     expect(batchedEntities[0].state.updatedDatetime).toEqual(currentDatetime);
+  });
+
+  test("create entity with entityId", async () => {
+    const myRepository = eventive({
+      db,
+      entityName: "MyEntity1",
+      reducer,
+    });
+
+    const currentDatetime = new Date().toISOString();
+
+    const { entity: e0, commit: commitCreate } = myRepository.create({
+      eventName: "init",
+      eventBody: {
+        datetime: currentDatetime,
+      },
+      entityId: "<entity-id>",
+    });
+
+    expect(e0.entityId).toEqual("<entity-id>");
+
+    await commitCreate();
+
+    const e1 = await myRepository.findOne({
+      entityId: "<entity-id>",
+    });
+
+    expect(e1?.entityId).toEqual("<entity-id>");
+
+    const allEntities = await myRepository.all();
+
+    expect(last(allEntities)?.entityId).toEqual("<entity-id>");
+
+    const batchedEntities = await myRepository.batchGet({
+      entityIds: ["<entity-id>"],
+    });
+
+    expect(batchedEntities.length).toEqual(1);
+    expect(batchedEntities[0].entityId).toEqual("<entity-id>");
   });
 
   test("update entity", async () => {

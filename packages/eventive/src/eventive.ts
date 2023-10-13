@@ -40,6 +40,7 @@ export type EventiveCreateArgs<
       eventName: EventName;
     }
   >["body"];
+  entityId?: string;
 };
 export type EventiveDispatchArgs<
   DomainEvent extends BaseDomainEvent<string, {}>,
@@ -235,16 +236,15 @@ export function eventive<
     return entities;
   };
 
-  const create: Output["create"] = ({ eventName, eventBody }) => {
+  const create: Output["create"] = ({ eventName, eventBody, entityId }) => {
     const eventId = createId();
-    const entityId = createId();
 
     const event = {
       eventId,
       eventName,
       eventCreatedAt: new Date().toISOString(),
       entityName: options.entityName,
-      entityId,
+      entityId: entityId ?? createId(),
       body: eventBody,
     } as BaseDomainEvent<string, {}> as DomainEvent;
 
