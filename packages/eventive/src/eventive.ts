@@ -1,6 +1,6 @@
 import { createId } from "@paralleldrive/cuid2";
-import { groupBy, last, sortBy } from "lodash-es";
-import type { Db, Filter, OptionalUnlessRequiredId } from "mongodb";
+import { groupBy, last } from "lodash-es";
+import type { Db, Filter, OptionalUnlessRequiredId, Sort } from "mongodb";
 
 import type { EventivePlugin } from "./EventivePlugin";
 import type {
@@ -19,6 +19,7 @@ export type EventiveQueryEventsArgs<
   DomainEvent extends BaseDomainEvent<string, {}>
 > = {
   filter: Filter<DomainEvent>;
+  sort?: Sort;
   limit?: number;
 };
 
@@ -120,12 +121,19 @@ export function eventive<
     }
   };
 
-  const queryEvents: Output["queryEvents"] = async ({ filter, limit }) => {
+  const queryEvents: Output["queryEvents"] = async ({
+    filter,
+    sort,
+    limit,
+  }) => {
     const cursor = eventsCollection.find({
       entityName: options.entityName,
       ...filter,
     });
 
+    if (sort) {
+      cursor.sort(sort);
+    }
     if (typeof limit === "number") {
       cursor.limit(limit);
     }
@@ -135,12 +143,12 @@ export function eventive<
   };
 
   const all: Output["all"] = async (args) => {
-    const events = sortBy(
-      await queryEvents({
-        filter: args?.filter ?? {},
-      }),
-      ["eventCreatedAt"]
-    );
+    const events = await queryEvents({
+      filter: args?.filter ?? {},
+      sort: {
+        eventCreatedAt: -1,
+      },
+    });
 
     const eventMap = groupBy(events, (e) => e.entityId);
 
@@ -167,12 +175,12 @@ export function eventive<
       entityId,
     } as Filter<DomainEvent>;
 
-    const events = sortBy(
-      await queryEvents({
-        filter: eventsFilter,
-      }),
-      ["eventCreatedAt"]
-    );
+    const events = await queryEvents({
+      filter: eventsFilter,
+      sort: {
+        eventCreatedAt: -1,
+      },
+    });
 
     if (events.length === 0) {
       return null;
@@ -205,6 +213,9 @@ export function eventive<
 
     const events = await queryEvents({
       filter,
+      sort: {
+        eventCreatedAt: -1,
+      },
     });
 
     const eventMap = groupBy(events, (e) => e.entityId);
