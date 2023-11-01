@@ -146,7 +146,7 @@ export function eventive<
     const events = await queryEvents({
       filter: args?.filter ?? {},
       sort: {
-        eventDate: -1,
+        eventCreatedAt: -1,
       },
     });
 
@@ -178,7 +178,7 @@ export function eventive<
     const events = await queryEvents({
       filter: eventsFilter,
       sort: {
-        eventDate: -1,
+        eventCreatedAt: -1,
       },
     });
 
@@ -193,11 +193,13 @@ export function eventive<
     const firstEvent = events[0];
     const lastEvent = last(events)!;
 
-    const entity = toEntity({
-      state,
-      lastEvent,
+    const entity = {
+      entityId: lastEvent.entityId,
+      entityName: lastEvent.entityName,
       createdAt: firstEvent.eventCreatedAt,
-    });
+      updatedAt: lastEvent.eventCreatedAt,
+      state: state,
+    };
 
     return entity;
   };
@@ -212,7 +214,7 @@ export function eventive<
     const events = await queryEvents({
       filter,
       sort: {
-        eventDate: -1,
+        eventCreatedAt: -1,
       },
     });
 
