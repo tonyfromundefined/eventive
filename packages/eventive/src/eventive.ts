@@ -146,7 +146,7 @@ export function eventive<
     const events = await queryEvents({
       filter: args?.filter ?? {},
       sort: {
-        eventCreatedAt: -1,
+        eventCreatedAt: 1,
       },
     });
 
@@ -178,7 +178,7 @@ export function eventive<
     const events = await queryEvents({
       filter: eventsFilter,
       sort: {
-        eventCreatedAt: -1,
+        eventCreatedAt: 1,
       },
     });
 
@@ -214,7 +214,7 @@ export function eventive<
     const events = await queryEvents({
       filter,
       sort: {
-        eventCreatedAt: -1,
+        eventCreatedAt: 1,
       },
     });
 
