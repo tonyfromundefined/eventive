@@ -108,6 +108,24 @@ export function eventive<
     event: DomainEvent;
     entity: BaseEntity<State>;
   }) => {
+    let shouldAbort = false;
+
+    const abortCommit = () => {
+      shouldAbort = true;
+    };
+
+    for (const plugin of plugins) {
+      plugin.beforeCommit?.({
+        event: options.mapper?.(event) ?? event,
+        entity,
+        abortCommit,
+      });
+    }
+
+    if (shouldAbort) {
+      return;
+    }
+
     const eventDocument = event as OptionalUnlessRequiredId<DomainEvent>;
 
     await eventsCollection.insertOne(eventDocument);

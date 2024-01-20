@@ -215,7 +215,7 @@ describe("eventive()", () => {
     expect(limitedEvents[0]).toStrictEqual(createEvent);
   });
 
-  test("plugin interface", async () => {
+  test("plugin interface: onCommitted", async () => {
     const onCommit = vi.fn(() => {});
 
     const myRepository = eventive({
@@ -259,6 +259,113 @@ describe("eventive()", () => {
     await commitUpdate();
 
     expect(onCommit).toHaveBeenCalledTimes(2);
+  });
+
+  test("plugin interface: beforeCommit", async () => {
+    const beforeCommitHook = vi.fn(() => {});
+
+    const myRepository = eventive({
+      db,
+      entityName: "MyEntity2",
+      reducer,
+      plugins: [
+        {
+          beforeCommit() {
+            beforeCommitHook();
+          },
+        },
+      ],
+    });
+
+    const currentDatetime = new Date().toISOString();
+
+    const { entity, commit: commitCreate } = myRepository.create({
+      eventName: "init",
+      eventBody: {
+        datetime: currentDatetime,
+      },
+    });
+
+    expect(beforeCommitHook).toHaveBeenCalledTimes(0);
+
+    await commitCreate();
+
+    expect(beforeCommitHook).toHaveBeenCalledTimes(1);
+
+    const { commit: commitUpdate } = myRepository.dispatch({
+      entity,
+      eventName: "update",
+      eventBody: {
+        datetime: new Date().toISOString(),
+      },
+    });
+
+    expect(beforeCommitHook).toHaveBeenCalledTimes(1);
+
+    await commitUpdate();
+
+    expect(beforeCommitHook).toHaveBeenCalledTimes(2);
+  });
+
+  test("beforeCommit plugin works as expect", async () => {
+    const blockCommitPlugin = ({
+      event,
+      abortCommit,
+    }: {
+      event: MyDomainEvent;
+      abortCommit: () => void;
+    }) => {
+      if (event.eventName === "update") {
+        abortCommit();
+      }
+    };
+
+    const myRepository = eventive({
+      db,
+      entityName: "MyEntity2",
+      reducer,
+      plugins: [
+        {
+          beforeCommit: blockCommitPlugin,
+        },
+      ],
+    });
+
+    const initDatetime = new Date().toISOString();
+
+    const { entity, commit: commitCreate } = myRepository.create({
+      eventName: "init",
+      eventBody: {
+        datetime: initDatetime,
+      },
+    });
+
+    await commitCreate();
+
+    await delay(100);
+
+    const updatedDatetime = new Date().toISOString();
+
+    const { commit: commitUpdate } = myRepository.dispatch({
+      entity,
+      eventName: "update",
+      eventBody: {
+        datetime: updatedDatetime,
+      },
+    });
+
+    await commitUpdate();
+
+    const targetEntity = await myRepository.findOne({
+      entityId: entity.entityId,
+    });
+
+    if (!targetEntity) {
+      throw new Error("targetEntity not found");
+    }
+
+    expect(targetEntity.updatedAt).toBe(initDatetime);
+    expect(targetEntity.updatedAt).not.toBe(updatedDatetime);
   });
 
   afterAll(async () => {
