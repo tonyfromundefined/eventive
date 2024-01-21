@@ -123,6 +123,7 @@ export function eventive<
     }
 
     if (shouldAbort) {
+      shouldAbort = false;
       return;
     }
 
