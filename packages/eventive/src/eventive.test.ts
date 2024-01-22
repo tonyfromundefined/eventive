@@ -8,8 +8,7 @@ import type { BaseDomainEvent, BaseReducer } from "./util-types";
 
 type MyDomainEvent =
   | BaseDomainEvent<"init", { datetime: string }>
-  | BaseDomainEvent<"update", { datetime: string }>
-  | BaseDomainEvent<"updateToAbort", { datetime: string }>;
+  | BaseDomainEvent<"update", { datetime: string }>;
 
 type MyState = {
   createdDatetime: string;
@@ -26,11 +25,6 @@ const reducer: MyReducer = (prevState, event) => {
         updatedDatetime: event.body.datetime,
       };
     case "update":
-      return {
-        ...prevState,
-        updatedDatetime: event.body.datetime,
-      };
-    case "updateToAbort":
       return {
         ...prevState,
         updatedDatetime: event.body.datetime,
@@ -311,157 +305,6 @@ describe("eventive()", () => {
     await commitUpdate();
 
     expect(beforeCommitHook).toHaveBeenCalledTimes(2);
-  });
-
-  test("beforeCommit plugin works as expect", async () => {
-    const blockCommitPlugin = ({
-      event,
-      abortCommit,
-    }: {
-      event: MyDomainEvent;
-      abortCommit: () => void;
-    }) => {
-      if (event.eventName === "updateToAbort") {
-        abortCommit();
-      }
-    };
-
-    const myRepository = eventive({
-      db,
-      entityName: "MyEntity2",
-      reducer,
-      plugins: [
-        {
-          beforeCommit: blockCommitPlugin,
-        },
-      ],
-    });
-
-    const initDatetime = new Date().toISOString();
-
-    const { entity, commit: commitCreate } = myRepository.create({
-      eventName: "init",
-      eventBody: {
-        datetime: initDatetime,
-      },
-    });
-
-    await commitCreate();
-
-    await delay(100);
-
-    const updateAbortedDatetime = new Date().toISOString();
-
-    const { commit: commitUpdateToAbort } = myRepository.dispatch({
-      entity,
-      eventName: "updateToAbort",
-      eventBody: {
-        datetime: updateAbortedDatetime,
-      },
-    });
-
-    await commitUpdateToAbort();
-
-    const updateAbortedEntity = await myRepository.findOne({
-      entityId: entity.entityId,
-    });
-
-    if (!updateAbortedEntity) {
-      throw new Error("updateAbortedEntity not found");
-    }
-
-    expect(updateAbortedEntity.state.updatedDatetime).toBe(initDatetime);
-    expect(updateAbortedEntity.state.updatedDatetime).not.toBe(
-      updateAbortedDatetime
-    );
-  });
-
-  test("beforeCommit plugin does not affect other commits", async () => {
-    const blockCommitPlugin = ({
-      event,
-      abortCommit,
-    }: {
-      event: MyDomainEvent;
-      abortCommit: () => void;
-    }) => {
-      if (event.eventName === "updateToAbort") {
-        abortCommit();
-      }
-    };
-
-    const myRepository = eventive({
-      db,
-      entityName: "MyEntity2",
-      reducer,
-      plugins: [
-        {
-          beforeCommit: blockCommitPlugin,
-        },
-      ],
-    });
-
-    const initDatetime = new Date().toISOString();
-
-    const { entity, commit: commitCreate } = myRepository.create({
-      eventName: "init",
-      eventBody: {
-        datetime: initDatetime,
-      },
-    });
-
-    await commitCreate();
-
-    await delay(100);
-
-    const updateAbortedDatetime = new Date().toISOString();
-
-    const { commit: commitUpdateToAbort } = myRepository.dispatch({
-      entity,
-      eventName: "updateToAbort",
-      eventBody: {
-        datetime: updateAbortedDatetime,
-      },
-    });
-
-    await commitUpdateToAbort();
-
-    const updateAbortedEntity = await myRepository.findOne({
-      entityId: entity.entityId,
-    });
-
-    if (!updateAbortedEntity) {
-      throw new Error("targetEntity not found");
-    }
-
-    expect(updateAbortedEntity.state.updatedDatetime).toBe(initDatetime);
-    expect(updateAbortedEntity.state.updatedDatetime).not.toBe(
-      updateAbortedDatetime
-    );
-
-    await delay(100);
-
-    const updatedDatetime = new Date().toISOString();
-
-    const { commit: commitUpdate } = myRepository.dispatch({
-      entity,
-      eventName: "update",
-      eventBody: {
-        datetime: updatedDatetime,
-      },
-    });
-
-    await commitUpdate();
-
-    const updatedEntity = await myRepository.findOne({
-      entityId: entity.entityId,
-    });
-
-    if (!updatedEntity) {
-      throw new Error("updatedEntity not found");
-    }
-
-    expect(updatedEntity.state.updatedDatetime).not.toBe(initDatetime);
-    expect(updatedEntity.state.updatedDatetime).toBe(updatedDatetime);
   });
 
   afterAll(async () => {

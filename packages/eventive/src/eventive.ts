@@ -101,8 +101,6 @@ export function eventive<
 
   const plugins = options.plugins ?? [];
 
-  let shouldAbort = false;
-
   const commitEvent = async ({
     event,
     entity,
@@ -110,21 +108,11 @@ export function eventive<
     event: DomainEvent;
     entity: BaseEntity<State>;
   }) => {
-    const abortCommit = () => {
-      shouldAbort = true;
-    };
-
     for (const plugin of plugins) {
       plugin.beforeCommit?.({
         event: options.mapper?.(event) ?? event,
         entity,
-        abortCommit,
       });
-    }
-
-    if (shouldAbort) {
-      shouldAbort = false;
-      return;
     }
 
     const eventDocument = event as OptionalUnlessRequiredId<DomainEvent>;
