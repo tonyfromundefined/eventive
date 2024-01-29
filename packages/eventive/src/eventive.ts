@@ -311,7 +311,11 @@ export function eventive<
     };
   };
 
-  const dispatch: Output["dispatch"] = ({ entity, eventName, eventBody }) => {
+  const dispatch: Output["dispatch"] = ({
+    entity: prevEntity,
+    eventName,
+    eventBody,
+  }) => {
     const eventId = createId();
 
     const event = {
@@ -319,24 +323,24 @@ export function eventive<
       eventName,
       eventCreatedAt: new Date().toISOString(),
       entityName: options.entityName,
-      entityId: entity.entityId,
+      entityId: prevEntity.entityId,
       body: eventBody,
     } as BaseDomainEvent<string, {}> as DomainEvent;
 
-    const nextState = options.reducer(
-      entity.state,
+    const state = options.reducer(
+      prevEntity.state,
       options.mapper?.(event) ?? event
     );
 
-    const updatedEntity = toEntity({
-      state: nextState,
+    const entity = toEntity({
+      state,
       lastEvent: event,
-      createdAt: entity.createdAt,
+      createdAt: prevEntity.createdAt,
     });
 
     return {
       event,
-      entity: updatedEntity,
+      entity,
       commit: () =>
         commitEvent({
           event,

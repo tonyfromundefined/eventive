@@ -216,7 +216,7 @@ describe("eventive()", () => {
     expect(limitedEvents[0]).toStrictEqual(createEvent);
   });
 
-  test("query snapshot", async () => {
+  test("query snapshots", async () => {
     const myRepository = eventive({
       db,
       entityName: "MyEntity2",
@@ -226,22 +226,70 @@ describe("eventive()", () => {
 
     const currentDatetime = new Date().toISOString();
 
-    const { entity, commit } = myRepository.create({
+    const { entity: entity1, commit: createEntity1 } = myRepository.create({
+      eventName: "init",
+      eventBody: {
+        datetime: currentDatetime,
+      },
+    });
+    const { entity: entity2, commit: createEntity2 } = myRepository.create({
       eventName: "init",
       eventBody: {
         datetime: currentDatetime,
       },
     });
 
-    await commit();
-
-    const foundEntity = await myRepository.querySnapshots({
+    const result1 = await myRepository.querySnapshots({
       filter: {
         "state.createdDatetime": currentDatetime,
       },
     });
 
-    expect(entity.entityId).toEqual(foundEntity[0].entityId);
+    expect(result1.length).toEqual(0);
+
+    await createEntity1();
+
+    const result2 = await myRepository.querySnapshots({
+      filter: {
+        "state.createdDatetime": currentDatetime,
+      },
+    });
+
+    expect(result2.length).toEqual(1);
+    expect(entity1.entityId).toEqual(result2[0].entityId);
+
+    const updatedDatetime = new Date().toISOString();
+
+    const { commit: updateEntity1 } = myRepository.dispatch({
+      entity: entity1,
+      eventName: "update",
+      eventBody: {
+        datetime: updatedDatetime,
+      },
+    });
+
+    await updateEntity1();
+
+    const result3 = await myRepository.querySnapshots({
+      filter: {
+        "state.updatedDatetime": updatedDatetime,
+      },
+    });
+
+    expect(result3.length).toEqual(1);
+    expect(entity1.entityId).toEqual(result3[0].entityId);
+
+    await createEntity2();
+
+    const result4 = await myRepository.querySnapshots({
+      filter: {
+        "state.createdDatetime": currentDatetime,
+      },
+    });
+
+    expect(result4.length).toEqual(2);
+    expect(entity1.entityId).toEqual(result4[0].entityId);
+    expect(entity2.entityId).toEqual(result4[1].entityId);
   });
 
   test("plugin interface: onCommitted", async () => {
