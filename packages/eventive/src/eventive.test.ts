@@ -216,7 +216,103 @@ describe("eventive()", () => {
     expect(limitedEvents[0]).toStrictEqual(createEvent);
   });
 
-  test("query snapshots", async () => {
+  test("if it not committed, snapshot is empty", async () => {
+    const myRepository = eventive({
+      db,
+      entityName: "MyEntity2",
+      reducer,
+      useSnapshot: true,
+    });
+
+    const currentDatetime = new Date().toISOString();
+
+    myRepository.create({
+      eventName: "init",
+      eventBody: {
+        datetime: currentDatetime,
+      },
+    });
+
+    const result = await myRepository.querySnapshots({
+      filter: {
+        "state.createdDatetime": currentDatetime,
+      },
+    });
+
+    expect(result.length).toEqual(0);
+  });
+
+  test("if it committed, querySnapshot() returns [entity]", async () => {
+    const myRepository = eventive({
+      db,
+      entityName: "MyEntity2",
+      reducer,
+      useSnapshot: true,
+    });
+
+    const currentDatetime = new Date().toISOString();
+
+    const { entity, commit } = myRepository.create({
+      eventName: "init",
+      eventBody: {
+        datetime: currentDatetime,
+      },
+    });
+
+    await commit();
+
+    const result = await myRepository.querySnapshots({
+      filter: {
+        "state.createdDatetime": currentDatetime,
+      },
+    });
+
+    expect(result.length).toEqual(1);
+    expect(entity.entityId).toEqual(result[0].entityId);
+  });
+
+  test("if update event committed, can be queried with querySnapshot()", async () => {
+    const myRepository = eventive({
+      db,
+      entityName: "MyEntity2",
+      reducer,
+      useSnapshot: true,
+    });
+
+    const firstDatetime = new Date().toISOString();
+
+    const { entity, commit } = myRepository.create({
+      eventName: "init",
+      eventBody: {
+        datetime: firstDatetime,
+      },
+    });
+
+    await commit();
+
+    const secondDatetime = new Date().toISOString();
+
+    const { commit: updateEntity } = myRepository.dispatch({
+      entity,
+      eventName: "update",
+      eventBody: {
+        datetime: secondDatetime,
+      },
+    });
+
+    await updateEntity();
+
+    const result = await myRepository.querySnapshots({
+      filter: {
+        "state.updatedDatetime": secondDatetime,
+      },
+    });
+
+    expect(result.length).toEqual(1);
+    expect(entity.entityId).toEqual(result[0].entityId);
+  });
+
+  test("if multiple items have same state, querySnapshot() returns multiple items", async () => {
     const myRepository = eventive({
       db,
       entityName: "MyEntity2",
@@ -239,57 +335,18 @@ describe("eventive()", () => {
       },
     });
 
-    const result1 = await myRepository.querySnapshots({
-      filter: {
-        "state.createdDatetime": currentDatetime,
-      },
-    });
-
-    expect(result1.length).toEqual(0);
-
     await createEntity1();
-
-    const result2 = await myRepository.querySnapshots({
-      filter: {
-        "state.createdDatetime": currentDatetime,
-      },
-    });
-
-    expect(result2.length).toEqual(1);
-    expect(entity1.entityId).toEqual(result2[0].entityId);
-
-    const updatedDatetime = new Date().toISOString();
-
-    const { commit: updateEntity1 } = myRepository.dispatch({
-      entity: entity1,
-      eventName: "update",
-      eventBody: {
-        datetime: updatedDatetime,
-      },
-    });
-
-    await updateEntity1();
-
-    const result3 = await myRepository.querySnapshots({
-      filter: {
-        "state.updatedDatetime": updatedDatetime,
-      },
-    });
-
-    expect(result3.length).toEqual(1);
-    expect(entity1.entityId).toEqual(result3[0].entityId);
-
     await createEntity2();
 
-    const result4 = await myRepository.querySnapshots({
+    const result = await myRepository.querySnapshots({
       filter: {
         "state.createdDatetime": currentDatetime,
       },
     });
 
-    expect(result4.length).toEqual(2);
-    expect(entity1.entityId).toEqual(result4[0].entityId);
-    expect(entity2.entityId).toEqual(result4[1].entityId);
+    expect(result.length).toEqual(2);
+    expect(entity1.entityId).toEqual(result[0].entityId);
+    expect(entity2.entityId).toEqual(result[1].entityId);
   });
 
   test("plugin interface: onCommitted", async () => {
