@@ -61,8 +61,8 @@ export type EventiveOptions<
   State extends {}
 > = {
   db: Db;
-  dbCollectionName?: string;
-  dbSnapshotCollectionName?: string;
+  dbEventsCollectionName?: string;
+  dbSnapshotsCollectionName?: string;
   entityName: string;
   reducer: BaseReducer<DomainEvent, State>;
   mapper?: BaseMapper<DomainEvent>;
@@ -106,10 +106,10 @@ export function eventive<
   type Output = Eventive<DomainEvent, State>;
 
   const eventsCollection = options.db.collection<DomainEvent>(
-    options.dbCollectionName ?? "events"
+    options.dbEventsCollectionName ?? "events"
   );
   const snapshotsCollection = options.db.collection<BaseEntity<State>>(
-    options.dbSnapshotCollectionName ??
+    options.dbSnapshotsCollectionName ??
       `${snakeCase(options.entityName)}_snapshots`
   );
 
