@@ -54,6 +54,7 @@ describe("eventive()", () => {
       db,
       entityName: "MyEntity1",
       reducer,
+      useSnapshot: true,
     });
 
     const currentDatetime = new Date().toISOString();
@@ -213,6 +214,34 @@ describe("eventive()", () => {
 
     expect(limitedEvents.length).toEqual(1);
     expect(limitedEvents[0]).toStrictEqual(createEvent);
+  });
+
+  test("query snapshot", async () => {
+    const myRepository = eventive({
+      db,
+      entityName: "MyEntity2",
+      reducer,
+      useSnapshot: true,
+    });
+
+    const currentDatetime = new Date().toISOString();
+
+    const { entity, commit } = myRepository.create({
+      eventName: "init",
+      eventBody: {
+        datetime: currentDatetime,
+      },
+    });
+
+    await commit();
+
+    const foundEntity = await myRepository.querySnapshots({
+      filter: {
+        "state.createdDatetime": currentDatetime,
+      },
+    });
+
+    expect(entity.entityId).toEqual(foundEntity[0].entityId);
   });
 
   test("plugin interface: onCommitted", async () => {
