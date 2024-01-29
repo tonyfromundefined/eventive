@@ -215,7 +215,7 @@ describe("eventive()", () => {
     expect(limitedEvents[0]).toStrictEqual(createEvent);
   });
 
-  test("plugin interface", async () => {
+  test("plugin interface: onCommitted", async () => {
     const onCommit = vi.fn(() => {});
 
     const myRepository = eventive({
@@ -259,6 +259,52 @@ describe("eventive()", () => {
     await commitUpdate();
 
     expect(onCommit).toHaveBeenCalledTimes(2);
+  });
+
+  test("plugin interface: beforeCommit", async () => {
+    const beforeCommitHook = vi.fn(() => {});
+
+    const myRepository = eventive({
+      db,
+      entityName: "MyEntity2",
+      reducer,
+      plugins: [
+        {
+          beforeCommit() {
+            beforeCommitHook();
+          },
+        },
+      ],
+    });
+
+    const currentDatetime = new Date().toISOString();
+
+    const { entity, commit: commitCreate } = myRepository.create({
+      eventName: "init",
+      eventBody: {
+        datetime: currentDatetime,
+      },
+    });
+
+    expect(beforeCommitHook).toHaveBeenCalledTimes(0);
+
+    await commitCreate();
+
+    expect(beforeCommitHook).toHaveBeenCalledTimes(1);
+
+    const { commit: commitUpdate } = myRepository.dispatch({
+      entity,
+      eventName: "update",
+      eventBody: {
+        datetime: new Date().toISOString(),
+      },
+    });
+
+    expect(beforeCommitHook).toHaveBeenCalledTimes(1);
+
+    await commitUpdate();
+
+    expect(beforeCommitHook).toHaveBeenCalledTimes(2);
   });
 
   afterAll(async () => {

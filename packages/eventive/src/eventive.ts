@@ -108,6 +108,13 @@ export function eventive<
     event: DomainEvent;
     entity: BaseEntity<State>;
   }) => {
+    for (const plugin of plugins) {
+      plugin.beforeCommit?.({
+        event: options.mapper?.(event) ?? event,
+        entity,
+      });
+    }
+
     const eventDocument = event as OptionalUnlessRequiredId<DomainEvent>;
 
     await eventsCollection.insertOne(eventDocument);
