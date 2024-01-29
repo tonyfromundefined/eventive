@@ -134,7 +134,11 @@ export function eventive<
     await eventsCollection.insertOne(eventDocument);
 
     if (options.useSnapshot) {
-      await snapshotsCollection.insertOne(entity);
+      await snapshotsCollection.updateOne(
+        { entityId: entity.entityId },
+        { $set: entity },
+        { upsert: true }
+      );
     }
 
     for (const plugin of plugins) {
