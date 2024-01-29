@@ -1,5 +1,5 @@
 import { createId } from "@paralleldrive/cuid2";
-import { groupBy, last, sortBy } from "lodash-es";
+import { groupBy, last, snakeCase, sortBy } from "lodash-es";
 import type { Db, Filter, OptionalUnlessRequiredId } from "mongodb";
 
 import type { EventivePlugin } from "./EventivePlugin";
@@ -19,6 +19,11 @@ export type EventiveQueryEventsArgs<
   DomainEvent extends BaseDomainEvent<string, {}>
 > = {
   filter: Filter<DomainEvent>;
+  limit?: number;
+};
+
+export type EventiveQuerySnapshotsArgs<State extends {}> = {
+  filter: Filter<BaseEntity<State>>;
   limit?: number;
 };
 
@@ -56,11 +61,13 @@ export type EventiveOptions<
   State extends {}
 > = {
   db: Db;
-  dbCollectionName?: string;
+  dbEventsCollectionName?: string;
+  dbSnapshotsCollectionName?: string;
   entityName: string;
   reducer: BaseReducer<DomainEvent, State>;
   mapper?: BaseMapper<DomainEvent>;
   plugins?: EventivePlugin<DomainEvent, State>[];
+  useSnapshot?: boolean;
 };
 
 export type Eventive<
@@ -70,6 +77,9 @@ export type Eventive<
   queryEvents(
     args: EventiveQueryEventsArgs<DomainEvent>
   ): Promise<DomainEvent[]>;
+  querySnapshots(
+    args: EventiveQuerySnapshotsArgs<State>
+  ): Promise<BaseEntity<State>[]>;
   all(args?: EventiveAllArgs<DomainEvent>): Promise<BaseEntity<State>[]>;
   findOne(args: EventiveFindOneArgs): Promise<BaseEntity<State> | null>;
   batchGet(args: EventiveBatchArgs): Promise<BaseEntity<State>[]>;
@@ -96,7 +106,11 @@ export function eventive<
   type Output = Eventive<DomainEvent, State>;
 
   const eventsCollection = options.db.collection<DomainEvent>(
-    options.dbCollectionName ?? "events"
+    options.dbEventsCollectionName ?? "events"
+  );
+  const snapshotsCollection = options.db.collection<BaseEntity<State>>(
+    options.dbSnapshotsCollectionName ??
+      `${snakeCase(options.entityName)}_snapshots`
   );
 
   const plugins = options.plugins ?? [];
@@ -118,6 +132,14 @@ export function eventive<
     const eventDocument = event as OptionalUnlessRequiredId<DomainEvent>;
 
     await eventsCollection.insertOne(eventDocument);
+
+    if (options.useSnapshot) {
+      await snapshotsCollection.updateOne(
+        { entityId: entity.entityId },
+        { $set: entity },
+        { upsert: true }
+      );
+    }
 
     for (const plugin of plugins) {
       plugin.onCommitted?.({
@@ -234,6 +256,27 @@ export function eventive<
     return entities;
   };
 
+  const querySnapshots: Output["querySnapshots"] = async ({
+    filter,
+    limit,
+  }) => {
+    const cursor = snapshotsCollection.find({
+      ...filter,
+    });
+
+    if (typeof limit === "number") {
+      cursor.limit(limit);
+    }
+
+    const snapshots = await cursor.toArray();
+
+    const entities = await batchGet({
+      entityIds: snapshots.map((s) => s.entityId),
+    });
+
+    return entities;
+  };
+
   const create: Output["create"] = ({ eventName, eventBody, entityId }) => {
     const eventId = createId();
 
@@ -268,7 +311,11 @@ export function eventive<
     };
   };
 
-  const dispatch: Output["dispatch"] = ({ entity, eventName, eventBody }) => {
+  const dispatch: Output["dispatch"] = ({
+    entity: prevEntity,
+    eventName,
+    eventBody,
+  }) => {
     const eventId = createId();
 
     const event = {
@@ -276,24 +323,24 @@ export function eventive<
       eventName,
       eventCreatedAt: new Date().toISOString(),
       entityName: options.entityName,
-      entityId: entity.entityId,
+      entityId: prevEntity.entityId,
       body: eventBody,
     } as BaseDomainEvent<string, {}> as DomainEvent;
 
-    const nextState = options.reducer(
-      entity.state,
+    const state = options.reducer(
+      prevEntity.state,
       options.mapper?.(event) ?? event
     );
 
-    const updatedEntity = toEntity({
-      state: nextState,
+    const entity = toEntity({
+      state,
       lastEvent: event,
-      createdAt: entity.createdAt,
+      createdAt: prevEntity.createdAt,
     });
 
     return {
       event,
-      entity: updatedEntity,
+      entity,
       commit: () =>
         commitEvent({
           event,
@@ -304,6 +351,7 @@ export function eventive<
 
   return {
     queryEvents,
+    querySnapshots,
     all,
     findOne,
     batchGet,
