@@ -349,8 +349,36 @@ describe("eventive()", () => {
     expect(entity2.entityId).toEqual(result[1].entityId);
   });
 
+  test("if useSnapshot is not declared, querySnapshot() throw error", async () => {
+    const myRepository = eventive({
+      db,
+      entityName: "MyEntity2",
+      reducer,
+      useSnapshot: false,
+    });
+
+    const currentDatetime = new Date().toISOString();
+
+    const { commit } = myRepository.create({
+      eventName: "init",
+      eventBody: {
+        datetime: currentDatetime,
+      },
+    });
+
+    await commit();
+
+    await expect(
+      myRepository.querySnapshots({
+        filter: {
+          "state.createdDatetime": currentDatetime,
+        },
+      })
+    ).rejects.toThrow();
+  });
+
   test("plugin interface: onCommitted", async () => {
-    const onCommit = vi.fn(() => {});
+    const onCommit = vi.fn(() => { });
 
     const myRepository = eventive({
       db,
@@ -396,7 +424,7 @@ describe("eventive()", () => {
   });
 
   test("plugin interface: beforeCommit", async () => {
-    const beforeCommitHook = vi.fn(() => {});
+    const beforeCommitHook = vi.fn(() => { });
 
     const myRepository = eventive({
       db,
