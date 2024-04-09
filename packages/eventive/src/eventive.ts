@@ -112,7 +112,7 @@ export function eventive<
   );
   const snapshotsCollection = options.db.collection<BaseEntity<State>>(
     options.dbSnapshotsCollectionName ??
-    `${snakeCase(options.entityName)}_snapshots`
+      `${snakeCase(options.entityName)}_snapshots`
   );
 
   const plugins = options.plugins ?? [];
