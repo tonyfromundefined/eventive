@@ -378,7 +378,7 @@ describe("eventive()", () => {
   });
 
   test("plugin interface: onCommitted", async () => {
-    const onCommit = vi.fn(() => { });
+    const onCommit = vi.fn(() => {});
 
     const myRepository = eventive({
       db,
@@ -424,7 +424,7 @@ describe("eventive()", () => {
   });
 
   test("plugin interface: beforeCommit", async () => {
-    const beforeCommitHook = vi.fn(() => { });
+    const beforeCommitHook = vi.fn(() => {});
 
     const myRepository = eventive({
       db,
