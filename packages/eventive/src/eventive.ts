@@ -1,6 +1,6 @@
 import { createId } from "@paralleldrive/cuid2";
-import { groupBy, last, snakeCase, sortBy } from "lodash-es";
-import type { Db, Filter, OptionalUnlessRequiredId } from "mongodb";
+import { compact, groupBy, last, snakeCase, sortBy } from "lodash-es";
+import type { Db, Filter, OptionalUnlessRequiredId, Sort } from "mongodb";
 
 import type { EventivePlugin } from "./EventivePlugin";
 import type {
@@ -19,11 +19,13 @@ export type EventiveQueryEventsArgs<
   DomainEvent extends BaseDomainEvent<string, {}>
 > = {
   filter: Filter<DomainEvent>;
+  sort?: Sort;
   limit?: number;
 };
 
 export type EventiveQuerySnapshotsArgs<State extends {}> = {
   filter: Filter<BaseEntity<State>>;
+  sort?: Sort;
   limit?: number;
 };
 
@@ -149,12 +151,19 @@ export function eventive<
     }
   };
 
-  const queryEvents: Output["queryEvents"] = async ({ filter, limit }) => {
+  const queryEvents: Output["queryEvents"] = async ({
+    filter,
+    limit,
+    sort,
+  }) => {
     const cursor = eventsCollection.find({
       entityName: options.entityName,
       ...filter,
     });
 
+    if (sort) {
+      cursor.sort(sort);
+    }
     if (typeof limit === "number") {
       cursor.limit(limit);
     }
@@ -238,26 +247,33 @@ export function eventive<
       (e) => e.entityId
     );
 
-    const entities = Object.entries(eventMap).map(([, e]) => {
-      const state = e
-        .map(options.mapper ?? bypass)
-        .reduce(options.reducer, {} as State);
+    return compact(
+      entityIds.map((entityId) => {
+        const e = eventMap[entityId];
 
-      const firstEvent = e[0];
-      const lastEvent = last(e)!;
+        if (!e) {
+          return null;
+        }
 
-      return toEntity({
-        state,
-        lastEvent,
-        createdAt: firstEvent.eventCreatedAt,
-      });
-    });
+        const state = e
+          .map(options.mapper ?? bypass)
+          .reduce(options.reducer, {} as State);
 
-    return entities;
+        const firstEvent = e[0];
+        const lastEvent = last(e)!;
+
+        return toEntity({
+          state,
+          lastEvent,
+          createdAt: firstEvent.eventCreatedAt,
+        });
+      })
+    );
   };
 
   const querySnapshots: Output["querySnapshots"] = async ({
     filter,
+    sort,
     limit,
   }) => {
     if (!options.useSnapshot) {
@@ -270,6 +286,9 @@ export function eventive<
       ...filter,
     });
 
+    if (sort) {
+      cursor.sort(sort);
+    }
     if (typeof limit === "number") {
       cursor.limit(limit);
     }

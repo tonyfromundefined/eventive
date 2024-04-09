@@ -469,6 +469,151 @@ describe("eventive()", () => {
     expect(beforeCommitHook).toHaveBeenCalledTimes(2);
   });
 
+  test("batchGet return items sorted with input `entityIds` order", async () => {
+    const myRepository = eventive({
+      db,
+      entityName: "MyEntity3",
+      reducer,
+      useSnapshot: true,
+    });
+
+    const { entity: e1, commit: commit1 } = myRepository.create({
+      eventName: "init",
+      eventBody: {
+        datetime: new Date().toISOString(),
+      },
+    });
+
+    await commit1();
+
+    await delay(1);
+
+    const { entity: e2, commit: commit2 } = myRepository.create({
+      eventName: "init",
+      eventBody: {
+        datetime: new Date().toISOString(),
+      },
+    });
+
+    await commit2();
+
+    const entities1 = await myRepository.batchGet({
+      entityIds: [e1.entityId, e2.entityId],
+    });
+
+    expect(entities1[0].entityId).toEqual(e1.entityId);
+    expect(entities1[1].entityId).toEqual(e2.entityId);
+
+    const entities2 = await myRepository.batchGet({
+      entityIds: [e2.entityId, e1.entityId],
+    });
+
+    expect(entities2[0].entityId).toEqual(e2.entityId);
+    expect(entities2[1].entityId).toEqual(e1.entityId);
+  });
+
+  test("batchGet not include not found item in result array", async () => {
+    const myRepository = eventive({
+      db,
+      entityName: "MyEntity4",
+      reducer,
+      useSnapshot: true,
+    });
+
+    const { entity: e1, commit: commit1 } = myRepository.create({
+      eventName: "init",
+      eventBody: {
+        datetime: new Date().toISOString(),
+      },
+    });
+    const { entity: e2, commit: commit2 } = myRepository.create({
+      eventName: "init",
+      eventBody: {
+        datetime: new Date().toISOString(),
+      },
+    });
+
+    await commit1();
+    await commit2();
+
+    const entities1 = await myRepository.batchGet({
+      entityIds: ["1234"],
+    });
+
+    expect(entities1.length).toEqual(0);
+
+    const entities2 = await myRepository.batchGet({
+      entityIds: [e1.entityId, "<not-found>", e2.entityId],
+    });
+
+    expect(entities2[0].entityId).toEqual(e1.entityId);
+    expect(entities2[1].entityId).toEqual(e2.entityId);
+  });
+
+  test("sort option is working properly on `queryEvents`, `querySnapshots`", async () => {
+    const myRepository = eventive({
+      db,
+      entityName: "MyEntity5",
+      reducer,
+      useSnapshot: true,
+    });
+
+    const { entity: e1, commit: commit1 } = myRepository.create({
+      eventName: "init",
+      eventBody: {
+        datetime: new Date().toISOString(),
+      },
+    });
+
+    await commit1();
+
+    await delay(100);
+
+    const { entity: e2, commit: commit2 } = myRepository.create({
+      eventName: "init",
+      eventBody: {
+        datetime: new Date().toISOString(),
+      },
+    });
+
+    await commit2();
+
+    const eventsAsc = await myRepository.queryEvents({
+      filter: {},
+      sort: {
+        eventCreatedAt: 1,
+      },
+    });
+    const eventsDesc = await myRepository.queryEvents({
+      filter: {},
+      sort: {
+        eventCreatedAt: -1,
+      },
+    });
+
+    const snapshotsAsc = await myRepository.querySnapshots({
+      filter: {},
+      sort: {
+        createdAt: 1,
+      },
+    });
+    const snapshotsDesc = await myRepository.querySnapshots({
+      filter: {},
+      sort: {
+        createdAt: -1,
+      },
+    });
+
+    expect(eventsAsc[0].body.datetime).toEqual(e1.state.createdDatetime);
+    expect(eventsDesc[0].body.datetime).toEqual(e2.state.createdDatetime);
+    expect(snapshotsAsc[0].state.createdDatetime).toEqual(
+      e1.state.createdDatetime
+    );
+    expect(snapshotsDesc[0].state.createdDatetime).toEqual(
+      e2.state.createdDatetime
+    );
+  });
+
   afterAll(async () => {
     await mongod.stop();
   });
