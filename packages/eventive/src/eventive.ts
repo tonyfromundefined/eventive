@@ -125,7 +125,7 @@ export function eventive<
     entity: BaseEntity<State>;
   }) => {
     for (const plugin of plugins) {
-      plugin.beforeCommit?.({
+      await plugin.beforeCommit?.({
         event: options.mapper?.(event) ?? event,
         entity,
       });
@@ -144,7 +144,7 @@ export function eventive<
     }
 
     for (const plugin of plugins) {
-      plugin.onCommitted?.({
+      await plugin.onCommitted?.({
         event: options.mapper?.(event) ?? event,
         entity,
       });
