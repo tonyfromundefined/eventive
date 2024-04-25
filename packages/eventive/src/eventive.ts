@@ -120,14 +120,17 @@ export function eventive<
   const commitEvent = async ({
     event,
     entity,
+    prevEntity,
   }: {
     event: DomainEvent;
     entity: BaseEntity<State>;
+    prevEntity?: BaseEntity<State>;
   }) => {
     for (const plugin of plugins) {
       await plugin.beforeCommit?.({
         event: options.mapper?.(event) ?? event,
         entity,
+        prevEntity,
       });
     }
 
@@ -147,6 +150,7 @@ export function eventive<
       await plugin.onCommitted?.({
         event: options.mapper?.(event) ?? event,
         entity,
+        prevEntity,
       });
     }
   };
@@ -370,6 +374,7 @@ export function eventive<
         commitEvent({
           event,
           entity,
+          prevEntity,
         }),
     };
   };

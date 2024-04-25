@@ -7,9 +7,11 @@ export type EventivePlugin<
   beforeCommit?(args: {
     event: DomainEvent;
     entity: BaseEntity<State>;
+    prevEntity?: BaseEntity<State>;
   }): void | Promise<void>;
   onCommitted?(args: {
     event: DomainEvent;
     entity: BaseEntity<State>;
+    prevEntity?: BaseEntity<State>;
   }): void | Promise<void>;
 };
