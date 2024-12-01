@@ -36,5 +36,5 @@
     "typescript": "^5.0.4",
     "ultra-runner": "^3.10.5"
   },
-  "packageManager": "yarn@3.5.0"
+  "packageManager": "yarn@4.5.3"
 }
