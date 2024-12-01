@@ -1,4 +1,4 @@
-import type { BaseDomainEvent, BaseEntity } from "./util-types";
+import type { BaseDomainEvent, Entity } from "./util-types";
 
 export type EventivePlugin<
   DomainEvent extends BaseDomainEvent<string, {}>,
@@ -6,12 +6,12 @@ export type EventivePlugin<
 > = {
   beforeCommit?(args: {
     event: DomainEvent;
-    entity: BaseEntity<State>;
-    prevEntity?: BaseEntity<State>;
+    entity: Entity<State>;
+    prevEntity?: Entity<State>;
   }): void | Promise<void>;
   onCommitted?(args: {
     event: DomainEvent;
-    entity: BaseEntity<State>;
-    prevEntity?: BaseEntity<State>;
+    entity: Entity<State>;
+    prevEntity?: Entity<State>;
   }): void | Promise<void>;
 };

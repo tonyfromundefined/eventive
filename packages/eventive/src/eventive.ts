@@ -5,7 +5,7 @@ import type { Db, Filter, OptionalUnlessRequiredId, Sort } from "mongodb";
 import type { EventivePlugin } from "./EventivePlugin";
 import type {
   BaseDomainEvent,
-  BaseEntity,
+  Entity,
   BaseMapper,
   BaseReducer,
 } from "./util-types";
@@ -24,7 +24,7 @@ export type EventiveQueryEventsArgs<
 };
 
 export type EventiveQuerySnapshotsArgs<State extends {}> = {
-  filter: Filter<BaseEntity<State>>;
+  filter: Filter<Entity<State>>;
   sort?: Sort;
   limit?: number;
 };
@@ -53,7 +53,7 @@ export type EventiveDispatchArgs<
   State extends {},
   EventName extends DomainEvent["eventName"]
 > = {
-  entity: BaseEntity<State>;
+  entity: Entity<State>;
   eventName: EventName;
   eventBody: Extract<DomainEvent, { eventName: EventName }>["body"];
 };
@@ -81,21 +81,21 @@ export type Eventive<
   ): Promise<DomainEvent[]>;
   querySnapshots(
     args: EventiveQuerySnapshotsArgs<State>
-  ): Promise<BaseEntity<State>[]>;
-  all(args?: EventiveAllArgs<DomainEvent>): Promise<BaseEntity<State>[]>;
-  findOne(args: EventiveFindOneArgs): Promise<BaseEntity<State> | null>;
-  batchGet(args: EventiveBatchArgs): Promise<BaseEntity<State>[]>;
+  ): Promise<Entity<State>[]>;
+  all(args?: EventiveAllArgs<DomainEvent>): Promise<Entity<State>[]>;
+  findOne(args: EventiveFindOneArgs): Promise<Entity<State> | null>;
+  batchGet(args: EventiveBatchArgs): Promise<Entity<State>[]>;
   create<EventName extends DomainEvent["eventName"]>(
     args: EventiveCreateArgs<DomainEvent, EventName>
   ): {
-    entity: BaseEntity<State>;
+    entity: Entity<State>;
     event: DomainEvent;
     commit: () => Promise<void>;
   };
   dispatch<EventName extends DomainEvent["eventName"]>(
     args: EventiveDispatchArgs<DomainEvent, State, EventName>
   ): {
-    entity: BaseEntity<State>;
+    entity: Entity<State>;
     event: DomainEvent;
     commit: () => Promise<void>;
   };
@@ -110,9 +110,9 @@ export function eventive<
   const eventsCollection = options.db.collection<DomainEvent>(
     options.dbEventsCollectionName ?? "events"
   );
-  const snapshotsCollection = options.db.collection<BaseEntity<State>>(
+  const snapshotsCollection = options.db.collection<Entity<State>>(
     options.dbSnapshotsCollectionName ??
-      `${snakeCase(options.entityName)}_snapshots`
+    `${snakeCase(options.entityName)}_snapshots`
   );
 
   const plugins = options.plugins ?? [];
@@ -123,8 +123,8 @@ export function eventive<
     prevEntity,
   }: {
     event: DomainEvent;
-    entity: BaseEntity<State>;
-    prevEntity?: BaseEntity<State>;
+    entity: Entity<State>;
+    prevEntity?: Entity<State>;
   }) => {
     for (const plugin of plugins) {
       await plugin.beforeCommit?.({

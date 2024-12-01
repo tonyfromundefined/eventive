@@ -1,6 +1,6 @@
 import type { BaseDomainEvent } from "./BaseDomainEvent";
 
-export type BaseEntity<State extends {}> = {
+export type Entity<State extends {}> = {
   entityId: string;
   entityName: string;
   createdAt: string;
@@ -19,7 +19,7 @@ export type ToEntityArgs<
 export function toEntity<
   DomainEvent extends BaseDomainEvent<string, {}>,
   State extends {}
->(args: ToEntityArgs<DomainEvent, State>): BaseEntity<State> {
+>(args: ToEntityArgs<DomainEvent, State>): Entity<State> {
   return {
     entityId: args.lastEvent.entityId,
     entityName: args.lastEvent.entityName,

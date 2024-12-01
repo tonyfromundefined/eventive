@@ -1,4 +1,4 @@
 export * from "./BaseDomainEvent";
-export * from "./BaseEntity";
+export * from "./Entity";
 export * from "./BaseMapper";
 export * from "./BaseReducer";
