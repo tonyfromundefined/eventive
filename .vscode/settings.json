@@ -3,4 +3,12 @@
     "**/.yarn": true,
     "**/.pnp.*": true
   },
+
+  // Biome
+  "editor.defaultFormatter": "biomejs.biome",
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll": "always",
+    "source.organizeImports.biome": "explicit"
+  },
 }

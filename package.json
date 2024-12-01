@@ -8,7 +8,7 @@
     "build": "ultra -r build",
     "build:dts": "ultra -r --build build:dts",
     "clean": "ultra -r clean",
-    "format": "echo \"no format\"",
+    "format": "biome check --fix --unsafe",
     "lerna:publish": "yarn build && lerna publish",
     "lerna:publish:all": "yarn build && lerna publish --force-publish",
     "lerna:publish:canary": "yarn build && lerna publish --canary",
@@ -20,6 +20,7 @@
     "esbuild": "0.17"
   },
   "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
     "@types/node": "^18.15.11",
     "concurrently": "^8.0.1",
     "lerna": "4.0.0",

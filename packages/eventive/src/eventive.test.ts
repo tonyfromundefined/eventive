@@ -4,8 +4,8 @@ import { MongoClient } from "mongodb";
 import { MongoMemoryServer } from "mongodb-memory-server";
 
 import { eventive } from "./eventive";
-import type { BaseDomainEvent, BaseReducer } from "./util-types";
 import { eventiveStorageMongo } from "./eventiveStorageMongo";
+import type { BaseDomainEvent, BaseReducer } from "./util-types";
 
 type MyDomainEvent =
   | BaseDomainEvent<"init", { datetime: string }>
@@ -236,10 +236,12 @@ describe("eventive()", () => {
       },
     });
 
-    const result = await db.collection("my_entity_two").find({
-      "createdDatetime": currentDatetime,
-    }).toArray()
-
+    const result = await db
+      .collection("my_entity_two")
+      .find({
+        createdDatetime: currentDatetime,
+      })
+      .toArray();
 
     expect(result.length).toEqual(0);
   });
@@ -266,9 +268,12 @@ describe("eventive()", () => {
 
     await commit();
 
-    const result = await db.collection("my_entity_two").find({
-      "createdDatetime": currentDatetime,
-    }).toArray()
+    const result = await db
+      .collection("my_entity_two")
+      .find({
+        createdDatetime: currentDatetime,
+      })
+      .toArray();
 
     expect(result.length).toEqual(1);
     expect(entity.entityId).toEqual(result[0].entityId);
@@ -308,9 +313,12 @@ describe("eventive()", () => {
 
     await updateEntity();
 
-    const result = await db.collection("my_entity_two").find({
-      "updatedDatetime": secondDatetime,
-    }).toArray()
+    const result = await db
+      .collection("my_entity_two")
+      .find({
+        updatedDatetime: secondDatetime,
+      })
+      .toArray();
 
     expect(result.length).toEqual(1);
     expect(entity.entityId).toEqual(result[0].entityId);
@@ -345,9 +353,12 @@ describe("eventive()", () => {
     await createEntity1();
     await createEntity2();
 
-    const result = await db.collection("my_entity_two").find({
-      "createdDatetime": currentDatetime,
-    }).toArray()
+    const result = await db
+      .collection("my_entity_two")
+      .find({
+        createdDatetime: currentDatetime,
+      })
+      .toArray();
 
     expect(result.length).toEqual(2);
     expect(entity1.entityId).toEqual(result[0].entityId);

@@ -69,7 +69,9 @@ export type Eventive<
   findOneByEntityId(
     args: EventiveFindOneByEntityIdArgs,
   ): Promise<Entity<State> | null>;
-  findEvents(args: {filter: Partial<Omit<DomainEvent, "body">>;}): Promise<Array<DomainEvent>>;
+  findEvents(args: { filter: Partial<Omit<DomainEvent, "body">> }): Promise<
+    Array<DomainEvent>
+  >;
   create<EventName extends DomainEvent["eventName"]>(
     args: EventiveCreateArgs<DomainEvent, EventName>,
   ): {
@@ -266,7 +268,9 @@ export function eventive<
     findOneByEntityId: findOneByEntityId,
     findByEntityIds: findByEntityIds,
     findEvents(args) {
-      return storage.findEvents({entityName, filter: args.filter }) as Promise<Array<DomainEvent>>
+      return storage.findEvents({ entityName, filter: args.filter }) as Promise<
+        Array<DomainEvent>
+      >;
     },
     create,
     dispatch,
