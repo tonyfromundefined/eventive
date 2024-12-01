@@ -2,5 +2,5 @@ import type { BaseDomainEvent } from "./BaseDomainEvent";
 
 export type BaseReducer<
   DomainEvent extends BaseDomainEvent<string, {}>,
-  State
+  State,
 > = (prevState: State, event: DomainEvent) => State;

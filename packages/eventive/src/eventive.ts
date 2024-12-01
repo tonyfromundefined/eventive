@@ -1,43 +1,35 @@
 import { createId } from "@paralleldrive/cuid2";
-import { compact, groupBy, last, snakeCase, sortBy } from "lodash-es";
-import type { Db, Filter, OptionalUnlessRequiredId, Sort } from "mongodb";
+import { compact, groupBy, last, sortBy } from "lodash-es";
 
 import type { EventivePlugin } from "./EventivePlugin";
 import type {
   BaseDomainEvent,
-  Entity,
   BaseMapper,
   BaseReducer,
+  Entity,
 } from "./util-types";
+
+import type {
+  EventiveStorage,
+  EventiveStorageFindEventsArgs,
+} from "./EventiveStorage";
 import { toEntity } from "./util-types";
 
-function bypass<T>(t: T) {
+function defaultMapper(t: any) {
   return t;
 }
 
-export type EventiveQueryEventsArgs<
-  DomainEvent extends BaseDomainEvent<string, {}>
-> = {
-  filter: Filter<DomainEvent>;
-  sort?: Sort;
-  limit?: number;
+export type EventiveFindOneByEntityIdArgs = {
+  entityId: string;
 };
 
-export type EventiveQuerySnapshotsArgs<State extends {}> = {
-  filter: Filter<Entity<State>>;
-  sort?: Sort;
-  limit?: number;
+export type EventiveFindByEntityIdsArgs = {
+  entityIds: string[];
 };
 
-export type EventiveAllArgs<DomainEvent extends BaseDomainEvent<string, {}>> = {
-  filter?: Filter<DomainEvent>;
-};
-
-export type EventiveFindOneArgs = { entityId: string };
-export type EventiveBatchArgs = { entityIds: string[] };
 export type EventiveCreateArgs<
   DomainEvent extends BaseDomainEvent<string, {}>,
-  EventName extends DomainEvent["eventName"]
+  EventName extends DomainEvent["eventName"],
 > = {
   eventName: EventName;
   eventBody: Extract<
@@ -51,7 +43,7 @@ export type EventiveCreateArgs<
 export type EventiveDispatchArgs<
   DomainEvent extends BaseDomainEvent<string, {}>,
   State extends {},
-  EventName extends DomainEvent["eventName"]
+  EventName extends DomainEvent["eventName"],
 > = {
   entity: Entity<State>;
   eventName: EventName;
@@ -60,40 +52,33 @@ export type EventiveDispatchArgs<
 
 export type EventiveOptions<
   DomainEvent extends BaseDomainEvent<string, {}>,
-  State extends {}
+  State extends {},
 > = {
-  db: Db;
-  dbEventsCollectionName?: string;
-  dbSnapshotsCollectionName?: string;
   entityName: string;
+  storage: EventiveStorage<BaseDomainEvent<string, {}>, {}>;
   reducer: BaseReducer<DomainEvent, State>;
   mapper?: BaseMapper<DomainEvent>;
   plugins?: EventivePlugin<DomainEvent, State>[];
-  useSnapshot?: boolean;
 };
 
 export type Eventive<
   DomainEvent extends BaseDomainEvent<string, {}>,
-  State extends {}
+  State extends {},
 > = {
-  queryEvents(
-    args: EventiveQueryEventsArgs<DomainEvent>
-  ): Promise<DomainEvent[]>;
-  querySnapshots(
-    args: EventiveQuerySnapshotsArgs<State>
-  ): Promise<Entity<State>[]>;
-  all(args?: EventiveAllArgs<DomainEvent>): Promise<Entity<State>[]>;
-  findOne(args: EventiveFindOneArgs): Promise<Entity<State> | null>;
-  batchGet(args: EventiveBatchArgs): Promise<Entity<State>[]>;
+  findByEntityIds(args: EventiveFindByEntityIdsArgs): Promise<Entity<State>[]>;
+  findOneByEntityId(
+    args: EventiveFindOneByEntityIdArgs,
+  ): Promise<Entity<State> | null>;
+  findEvents(args: {filter: Partial<Omit<DomainEvent, "body">>;}): Promise<Array<DomainEvent>>;
   create<EventName extends DomainEvent["eventName"]>(
-    args: EventiveCreateArgs<DomainEvent, EventName>
+    args: EventiveCreateArgs<DomainEvent, EventName>,
   ): {
     entity: Entity<State>;
     event: DomainEvent;
     commit: () => Promise<void>;
   };
   dispatch<EventName extends DomainEvent["eventName"]>(
-    args: EventiveDispatchArgs<DomainEvent, State, EventName>
+    args: EventiveDispatchArgs<DomainEvent, State, EventName>,
   ): {
     entity: Entity<State>;
     event: DomainEvent;
@@ -103,19 +88,80 @@ export type Eventive<
 
 export function eventive<
   DomainEvent extends BaseDomainEvent<string, {}>,
-  State extends {}
->(options: EventiveOptions<DomainEvent, State>): Eventive<DomainEvent, State> {
+  State extends {},
+>({
+  entityName,
+  reducer,
+  storage,
+  mapper = defaultMapper,
+  plugins = [],
+}: EventiveOptions<DomainEvent, State>): Eventive<DomainEvent, State> {
   type Output = Eventive<DomainEvent, State>;
 
-  const eventsCollection = options.db.collection<DomainEvent>(
-    options.dbEventsCollectionName ?? "events"
-  );
-  const snapshotsCollection = options.db.collection<Entity<State>>(
-    options.dbSnapshotsCollectionName ??
-    `${snakeCase(options.entityName)}_snapshots`
-  );
+  const findOneByEntityId: Output["findOneByEntityId"] = async ({
+    entityId,
+  }) => {
+    const filter = {
+      entityId,
+    } as EventiveStorageFindEventsArgs["filter"];
 
-  const plugins = options.plugins ?? [];
+    const events = await storage.findEvents({
+      entityName,
+      filter,
+    });
+
+    if (events.length === 0) {
+      return null;
+    }
+
+    const state = sortBy(events, (e) => e.eventCreatedAt)
+      .map(mapper)
+      .reduce(reducer, {} as State);
+
+    const firstEvent = events[0];
+    const lastEvent = last(events)!;
+
+    const entity = toEntity({
+      state,
+      createdAt: firstEvent.eventCreatedAt,
+      lastEvent: lastEvent,
+    });
+
+    return entity;
+  };
+
+  const findByEntityIds: Output["findByEntityIds"] = async ({ entityIds }) => {
+    const events = await storage.findEventsByEntityIds({
+      entityName,
+      entityIds,
+    });
+
+    const eventMap = groupBy(
+      sortBy(events, (e) => e.eventCreatedAt),
+      (e) => e.entityId,
+    );
+
+    return compact(
+      entityIds.map((entityId) => {
+        const e = eventMap[entityId];
+
+        if (!e) {
+          return null;
+        }
+
+        const state = e.map(mapper).reduce(reducer, {} as State);
+
+        const firstEvent = e[0];
+        const lastEvent = last(e)!;
+
+        return toEntity({
+          state,
+          lastEvent,
+          createdAt: firstEvent.eventCreatedAt,
+        });
+      }),
+    );
+  };
 
   const commitEvent = async ({
     event,
@@ -128,182 +174,25 @@ export function eventive<
   }) => {
     for (const plugin of plugins) {
       await plugin.beforeCommit?.({
-        event: options.mapper?.(event) ?? event,
+        event: mapper(event),
         entity,
         prevEntity,
       });
     }
 
-    const eventDocument = event as OptionalUnlessRequiredId<DomainEvent>;
-
-    await eventsCollection.insertOne(eventDocument);
-
-    if (options.useSnapshot) {
-      await snapshotsCollection.updateOne(
-        { entityId: entity.entityId },
-        { $set: entity },
-        { upsert: true }
-      );
-    }
+    await storage.commit({
+      entityName,
+      event,
+      entity,
+    });
 
     for (const plugin of plugins) {
       await plugin.onCommitted?.({
-        event: options.mapper?.(event) ?? event,
+        event: mapper(event),
         entity,
         prevEntity,
       });
     }
-  };
-
-  const queryEvents: Output["queryEvents"] = async ({
-    filter,
-    limit,
-    sort,
-  }) => {
-    const cursor = eventsCollection.find({
-      entityName: options.entityName,
-      ...filter,
-    });
-
-    if (sort) {
-      cursor.sort(sort);
-    }
-    if (typeof limit === "number") {
-      cursor.limit(limit);
-    }
-
-    const events = await cursor.toArray();
-    return events as DomainEvent[];
-  };
-
-  const all: Output["all"] = async (args) => {
-    const events = await queryEvents({
-      filter: args?.filter ?? {},
-    });
-
-    const eventMap = groupBy(
-      sortBy(events, (e) => e.eventCreatedAt),
-      (e) => e.entityId
-    );
-
-    const entities = Object.entries(eventMap).map(([, e]) => {
-      const state = e
-        .map(options.mapper ?? bypass)
-        .reduce(options.reducer, {} as State);
-
-      const firstEvent = e[0];
-      const lastEvent = last(e)!;
-
-      return toEntity({
-        state,
-        createdAt: firstEvent.eventCreatedAt,
-        lastEvent,
-      });
-    });
-
-    return entities;
-  };
-
-  const findOne: Output["findOne"] = async ({ entityId }) => {
-    const eventsFilter = {
-      entityId,
-    } as Filter<DomainEvent>;
-
-    const events = await queryEvents({
-      filter: eventsFilter,
-    });
-
-    if (events.length === 0) {
-      return null;
-    }
-
-    const state = sortBy(events, (e) => e.eventCreatedAt)
-      .map(options.mapper ?? bypass)
-      .reduce(options.reducer, {} as State);
-
-    const firstEvent = events[0];
-    const lastEvent = last(events)!;
-
-    const entity = {
-      entityId: lastEvent.entityId,
-      entityName: lastEvent.entityName,
-      createdAt: firstEvent.eventCreatedAt,
-      updatedAt: lastEvent.eventCreatedAt,
-      state: state,
-    };
-
-    return entity;
-  };
-
-  const batchGet: Output["batchGet"] = async ({ entityIds }) => {
-    const filter = {
-      entityId: {
-        $in: entityIds,
-      },
-    } as Filter<DomainEvent>;
-
-    const events = await queryEvents({
-      filter,
-    });
-
-    const eventMap = groupBy(
-      sortBy(events, (e) => e.eventCreatedAt),
-      (e) => e.entityId
-    );
-
-    return compact(
-      entityIds.map((entityId) => {
-        const e = eventMap[entityId];
-
-        if (!e) {
-          return null;
-        }
-
-        const state = e
-          .map(options.mapper ?? bypass)
-          .reduce(options.reducer, {} as State);
-
-        const firstEvent = e[0];
-        const lastEvent = last(e)!;
-
-        return toEntity({
-          state,
-          lastEvent,
-          createdAt: firstEvent.eventCreatedAt,
-        });
-      })
-    );
-  };
-
-  const querySnapshots: Output["querySnapshots"] = async ({
-    filter,
-    sort,
-    limit,
-  }) => {
-    if (!options.useSnapshot) {
-      throw new Error(
-        "useSnapshot is falsy. Please set useSnapshot to true explicitly."
-      );
-    }
-
-    const cursor = snapshotsCollection.find({
-      ...filter,
-    });
-
-    if (sort) {
-      cursor.sort(sort);
-    }
-    if (typeof limit === "number") {
-      cursor.limit(limit);
-    }
-
-    const snapshots = await cursor.toArray();
-
-    const entities = await batchGet({
-      entityIds: snapshots.map((s) => s.entityId),
-    });
-
-    return entities;
   };
 
   const create: Output["create"] = ({ eventName, eventBody, entityId }) => {
@@ -313,15 +202,12 @@ export function eventive<
       eventId,
       eventName,
       eventCreatedAt: new Date().toISOString(),
-      entityName: options.entityName,
+      entityName,
       entityId: entityId ?? createId(),
       body: eventBody,
     } as BaseDomainEvent<string, {}> as DomainEvent;
 
-    const state = options.reducer(
-      {} as State,
-      options.mapper?.(event) ?? event
-    );
+    const state = reducer({} as State, mapper(event));
 
     const entity = toEntity({
       state,
@@ -351,15 +237,12 @@ export function eventive<
       eventId,
       eventName,
       eventCreatedAt: new Date().toISOString(),
-      entityName: options.entityName,
+      entityName,
       entityId: prevEntity.entityId,
       body: eventBody,
     } as BaseDomainEvent<string, {}> as DomainEvent;
 
-    const state = options.reducer(
-      prevEntity.state,
-      options.mapper?.(event) ?? event
-    );
+    const state = reducer(prevEntity, mapper(event));
 
     const entity = toEntity({
       state,
@@ -380,11 +263,11 @@ export function eventive<
   };
 
   return {
-    queryEvents,
-    querySnapshots,
-    all,
-    findOne,
-    batchGet,
+    findOneByEntityId: findOneByEntityId,
+    findByEntityIds: findByEntityIds,
+    findEvents(args) {
+      return storage.findEvents({entityName, filter: args.filter }) as Promise<Array<DomainEvent>>
+    },
     create,
     dispatch,
   };
