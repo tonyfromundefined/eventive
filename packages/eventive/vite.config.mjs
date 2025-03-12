@@ -3,8 +3,10 @@ import { defineConfig } from "vite";
 export default defineConfig({
   test: {
     globals: true,
-    deps: {
-      fallbackCJS: true,
+    server: {
+      deps: {
+        fallbackCJS: true,
+      },
     },
   },
 });

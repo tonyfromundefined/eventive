@@ -21,10 +21,9 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
-    "@types/node": "^18.15.11",
-    "concurrently": "^8.0.1",
+    "@types/node": "^18.19.80",
     "lerna": "4.0.0",
-    "typescript": "^5.7.2",
+    "typescript": "^5.8.2",
     "ultra-runner": "^3.10.5"
   },
   "packageManager": "yarn@4.5.3"
