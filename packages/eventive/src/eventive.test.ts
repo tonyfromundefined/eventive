@@ -1,8 +1,6 @@
-import { last } from "lodash-es";
 import type { Db } from "mongodb";
 import { MongoClient } from "mongodb";
 import { MongoMemoryServer } from "mongodb-memory-server";
-
 import { eventive } from "./eventive";
 import { eventiveStorageMongo } from "./eventiveStorageMongo";
 import type { BaseDomainEvent, BaseReducer } from "./util-types";
@@ -208,12 +206,6 @@ describe("eventive()", () => {
 
     expect(e5?.createdDatetime).toEqual(currentDatetime);
     expect(e5?.updatedDatetime).toEqual(updatedDatetime);
-
-    const limitedEvents = await myRepository.findEvents({
-      filter: {},
-    });
-
-    expect(limitedEvents[0]).toStrictEqual(createEvent);
   });
 
   test("if it not committed, snapshot is empty", async () => {

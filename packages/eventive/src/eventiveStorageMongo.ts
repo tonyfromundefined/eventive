@@ -21,18 +21,6 @@ export function eventiveStorageMongo<
   );
 
   return {
-    async findEvents({ entityName, filter }) {
-      const findFilter = {
-        entityName,
-        ...filter,
-      } as Filter<DomainEvent>;
-
-      const events = (await eventsCollection
-        .find(findFilter)
-        .toArray()) as DomainEvent[];
-
-      return events;
-    },
     async findEventsByEntityIds({ entityName, entityIds }) {
       const filter = {
         entityName,
