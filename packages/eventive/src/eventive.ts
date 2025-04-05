@@ -1,18 +1,13 @@
 import { createId } from "@paralleldrive/cuid2";
 import { compact, groupBy, last, sortBy } from "lodash-es";
-
 import type { EventivePlugin } from "./EventivePlugin";
+import type { EventiveStorage } from "./EventiveStorage";
 import type {
   BaseDomainEvent,
   BaseMapper,
   BaseReducer,
   Entity,
 } from "./util-types";
-
-import type {
-  EventiveStorage,
-  EventiveStorageFindEventsArgs,
-} from "./EventiveStorage";
 import { toEntity } from "./util-types";
 
 function defaultMapper(t: any) {
@@ -69,9 +64,6 @@ export type Eventive<
   findOneByEntityId(
     args: EventiveFindOneByEntityIdArgs,
   ): Promise<Entity<State> | null>;
-  findEvents(args: { filter: Partial<Omit<DomainEvent, "body">> }): Promise<
-    Array<DomainEvent>
-  >;
   create<EventName extends DomainEvent["eventName"]>(
     args: EventiveCreateArgs<DomainEvent, EventName>,
   ): {
@@ -103,13 +95,9 @@ export function eventive<
   const findOneByEntityId: Output["findOneByEntityId"] = async ({
     entityId,
   }) => {
-    const filter = {
-      entityId,
-    } as EventiveStorageFindEventsArgs["filter"];
-
-    const events = await storage.findEvents({
+    const events = await storage.findEventsByEntityIds({
       entityName,
-      filter,
+      entityIds: [entityId],
     });
 
     if (events.length === 0) {
@@ -267,11 +255,6 @@ export function eventive<
   return {
     findOneByEntityId: findOneByEntityId,
     findByEntityIds: findByEntityIds,
-    findEvents(args) {
-      return storage.findEvents({ entityName, filter: args.filter }) as Promise<
-        Array<DomainEvent>
-      >;
-    },
     create,
     dispatch,
   };
