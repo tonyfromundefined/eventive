@@ -54,6 +54,7 @@ export type EventiveOptions<
   reducer: BaseReducer<DomainEvent, State>;
   mapper?: BaseMapper<DomainEvent>;
   plugins?: EventivePlugin<DomainEvent, State>[];
+  generateId?: () => string;
 };
 
 export type Eventive<
@@ -89,7 +90,16 @@ export function eventive<
   storage,
   mapper = defaultMapper,
   plugins = [],
+  generateId,
 }: EventiveOptions<DomainEvent, State>): Eventive<DomainEvent, State> {
+  function createEventId() {
+    return generateId?.() ?? createId();
+  }
+
+  function createEntityId(predefinedEntityId?: string) {
+    return predefinedEntityId ?? generateId?.() ?? createId();
+  }
+
   type Output = Eventive<DomainEvent, State>;
 
   const findOneByEntityId: Output["findOneByEntityId"] = async ({
@@ -186,14 +196,15 @@ export function eventive<
   };
 
   const create: Output["create"] = ({ eventName, eventBody, entityId }) => {
-    const eventId = createId();
+    const newEventId = createEventId();
+    const newEntityId = createEntityId(entityId);
 
     const event = {
-      eventId,
+      eventId: newEventId,
       eventName,
       eventCreatedAt: new Date().toISOString(),
       entityName,
-      entityId: entityId ?? createId(),
+      entityId: newEntityId,
       body: eventBody,
     } as BaseDomainEvent<string, {}> as DomainEvent;
 
@@ -221,10 +232,10 @@ export function eventive<
     eventName,
     eventBody,
   }) => {
-    const eventId = createId();
+    const newEventId = createEventId();
 
     const event = {
-      eventId,
+      eventId: newEventId,
       eventName,
       eventCreatedAt: new Date().toISOString(),
       entityName,
